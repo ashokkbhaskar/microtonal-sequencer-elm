@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Microtonal Sequencer</title>
+	</head>
+	<body>
+		<script src="target/main.js"></script>
+		<script>
+
+			var app = Elm.Main.fullscreen();
+
+			var context = new (window.AudioContext || window.webkitAudioContext)();
+			var filter = context.createBiquadFilter();
+			filter.type = 'lowpass';
+			filter.frequency.value = 3000;
+			filter.connect(context.destination);
+
+			var oscillator = null;
+
+			app.ports.toJs_stopPlayback.subscribe(function () {
+				oscillator && oscillator.stop(0);
+				oscillator = null;
+			});
+
+			app.ports.toJs_playFrequency.subscribe(function (frequency) {
+				oscillator && oscillator.stop(0);
+				oscillator = context.createOscillator();
+				oscillator.type = "triangle";
+				oscillator.frequency.value = frequency;
+				oscillator.connect(filter);
+				oscillator.start(0);
+			});
+			
+
+		</script>
+	</body>
+</html>
