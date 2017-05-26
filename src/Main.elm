@@ -3,6 +3,7 @@ port module Main exposing (..)
 import Html exposing (..)
 import Html.Attributes as Attr exposing (..)
 import Array exposing (Array, get, set, length)
+import Dict exposing (Dict)
 import Time exposing (Time, minute)
 import Html.Events exposing (onClick, onInput, on)
 import Json.Encode as Encode
@@ -21,7 +22,7 @@ main =
 --MODEL
 
 type alias Model = 
-    { notes : Array Note
+    { notes : Dict String (Array Note)
     , scale : Scale
     , sequenceLength : Int
     , currentIndex : Int
@@ -52,8 +53,25 @@ init =
     , isPlaying = False
     } ! []
 
-initialNotes : Array Note
-initialNotes = Array.initialize c_MAX_SEQ_LENGTH (\index -> Degree index)
+initialNotes : Dict String (Array Note)
+initialNotes =
+    let
+        emptyTrack = Array.initialize c_MAX_SEQ_LENGTH (\_ -> Tie)
+    in
+        Dict.fromList
+            [ (c_TRACK_0_ID, emptyTrack)
+            , (c_TRACK_1_ID, emptyTrack)
+            , (c_TRACK_2_ID, emptyTrack)
+            , (c_TRACK_3_ID, emptyTrack)
+            , (c_TRACK_4_ID, emptyTrack)
+            , (c_TRACK_5_ID, emptyTrack)
+            ]
+c_TRACK_0_ID = "track-0"
+c_TRACK_1_ID = "track-1"
+c_TRACK_2_ID = "track-2"
+c_TRACK_3_ID = "track-3"
+c_TRACK_4_ID = "track-4"
+c_TRACK_5_ID = "track-5"
 
 initialScale : Scale
 initialScale =
@@ -79,8 +97,8 @@ c_MIN_BPM = 20
 c_MAX_BPM : Int
 c_MAX_BPM = 400
 
-c_STEP_INDEX_PROP_NAME : String
 c_STEP_INDEX_PROP_NAME = "stepIndex"
+c_TRACK_ID_PROP_NAME = "trackId"
 
 c_MIN_OUTPUT_FREQUENCY : Float
 c_MIN_OUTPUT_FREQUENCY = 20.0
@@ -96,7 +114,7 @@ type Msg
     | ChangeBpm String 
     | ChangeSeqLength String
     | ChangeEdo String
-    | ChangeNote Int String --step index, note input text
+    | ChangeNote String Int String --track ID, step index, note input text
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -110,15 +128,16 @@ update msg model =
                         0
             in
                 { model | currentIndex = newIndex } !
-                    [ playNote model.scale (get newIndex model.notes) ]
+                    playNotes model.scale newIndex model.notes
         Toggle ->
-            { model | isPlaying = (not model.isPlaying) } !
-                [ 
+            let
+                cmdList =
                     if model.isPlaying then
-                        stopPlayback
+                        [ stopPlayback ]
                     else
-                        playNote model.scale (get model.currentIndex model.notes) 
-                ]
+                        playNotes model.scale model.currentIndex model.notes
+            in 
+                { model | isPlaying = (not model.isPlaying) } ! cmdList
         Stop ->
             { model | currentIndex = 0, isPlaying = False } ! [ stopPlayback ]
         ChangeBpm newBpmString ->  --need to enforce range validation here
@@ -152,36 +171,50 @@ update msg model =
                         model ! []
                 Err _ ->
                     model ! []
-        ChangeNote stepIndex noteString ->
-            if 0 <= stepIndex && stepIndex < (length model.notes) then
-                case String.toInt noteString of 
-                    Ok newDegree ->
-                        { model | notes = set stepIndex (Degree newDegree)
-                            model.notes } ! []
-                    Err _ ->
-                        if String.isEmpty noteString then
-                            { model | notes = set stepIndex Tie 
+        ChangeNote trackId stepIndex noteString ->
+            case Dict.get trackId model.notes of
+                Nothing ->
+                    model ! []
+                Just track ->
+                    if 0 <= stepIndex && stepIndex < (length track) then
+                        let 
+                            newNote = 
+                                case String.toInt noteString of 
+                                    Ok newDegree ->
+                                        Degree newDegree
+                                    Err _ ->
+                                        if String.isEmpty noteString then
+                                            Tie
+                                        else
+                                            Off
+                            newTrack =
+                                set stepIndex newNote track
+                        in
+                            { model | notes = Dict.insert trackId newTrack 
                                 model.notes } ! []
-                        else
-                            { model | notes = set stepIndex Off
-                                model.notes } ! []
-            else
-                model ! []
+                    else
+                        model ! []
 
 
 --COMMANDS AND PORTS
 
 port toJs_stopPlayback : () -> Cmd msg
 
-port toJs_playFrequency : Float -> Cmd msg
+port toJs_startOscillator : (String, Float) -> Cmd msg --track id, frequency
+
+port toJs_stopOscillator : String -> Cmd msg --track id
 
 stopPlayback : Cmd msg
 stopPlayback = 
     toJs_stopPlayback ()
 
-playNote : Scale -> Maybe Note -> Cmd msg
-playNote scale maybeNote =
-    case maybeNote of
+playNotes : Scale -> Int -> Dict String (Array Note) -> List (Cmd msg)
+playNotes scale stepIndex notes =
+    List.map (playNote scale stepIndex) (Dict.toList notes)
+
+playNote : Scale -> Int -> (String, Array Note) -> Cmd msg
+playNote scale stepIndex (trackId, noteArray) =
+    case (Array.get stepIndex noteArray) of
         Just note ->
             case note of
                 Degree degree ->
@@ -189,13 +222,13 @@ playNote scale maybeNote =
                     in
                         if c_MIN_OUTPUT_FREQUENCY <= frequency &&
                             frequency <= c_MAX_OUTPUT_FREQUENCY then
-                                toJs_playFrequency frequency
+                                toJs_startOscillator (trackId, frequency)
                         else
-                            Cmd.none
+                            toJs_stopOscillator trackId --stop oscillator if freq is out of range
                 Tie ->
                     Cmd.none
                 Off ->
-                    toJs_stopPlayback ()
+                    toJs_stopOscillator trackId
         Nothing ->
             Cmd.none
 
@@ -239,7 +272,12 @@ view model =
         , bpmHtmlElement
         , sequenceLengthHtmlElement
         , scaleHtmlElement
-        , trackHtmlElement c_MAX_SEQ_LENGTH
+        , trackHtmlElement c_TRACK_0_ID c_MAX_SEQ_LENGTH
+        , trackHtmlElement c_TRACK_1_ID c_MAX_SEQ_LENGTH
+        , trackHtmlElement c_TRACK_2_ID c_MAX_SEQ_LENGTH
+        , trackHtmlElement c_TRACK_3_ID c_MAX_SEQ_LENGTH
+        , trackHtmlElement c_TRACK_4_ID c_MAX_SEQ_LENGTH
+        , trackHtmlElement c_TRACK_5_ID c_MAX_SEQ_LENGTH
         , p []
             [ text <|
                 "Positive and negative integers represent scale steps above and"
@@ -318,12 +356,12 @@ scaleHtmlElement =
         , span [] [text "Equal divisons of the octave"]
         ]
 
-trackHtmlElement : Int -> Html Msg
-trackHtmlElement maxSeqLength =
-    div [] <| noteInputList maxSeqLength
+trackHtmlElement : String -> Int -> Html Msg
+trackHtmlElement trackId maxSeqLength =
+    div [] <| noteInputList trackId maxSeqLength
 
-noteInputHtmlElement : Int -> Note -> Html Msg
-noteInputHtmlElement index initialNote =
+noteInputHtmlElement : String -> Int -> Note -> Html Msg
+noteInputHtmlElement trackId index initialNote =
     input 
         [ defaultValue <|
             case initialNote of
@@ -336,24 +374,35 @@ noteInputHtmlElement index initialNote =
         , style 
             [ ("width", "40px")
             ]
+        , property c_TRACK_ID_PROP_NAME <| Encode.string trackId
         , property c_STEP_INDEX_PROP_NAME <| Encode.int index
         , onNoteInput ChangeNote
         ] []
 
-noteInputList : Int -> List (Html Msg)
-noteInputList maxSeqLength =
-    List.map noteInput (List.range 0 <| maxSeqLength - 1)
+noteInputList : String -> Int -> List (Html Msg)
+noteInputList trackId maxSeqLength =
+    List.map (noteInput trackId) (List.range 0 <| maxSeqLength - 1)
 
-noteInput : Int -> Html Msg
-noteInput index =
-    noteInputHtmlElement index (get index initialNotes |> Maybe.withDefault Tie)
+noteInput : String -> Int -> Html Msg
+noteInput trackId index =
+    let
+        initialNotesOfTrack = Dict.get trackId initialNotes
+        initialNote =
+            case initialNotesOfTrack of
+                Just initialNoteArray -> 
+                    Array.get index initialNoteArray |> Maybe.withDefault Tie
+                Nothing ->
+                    Tie
+    in
+        noteInputHtmlElement trackId index initialNote
 
-onNoteInput : (Int -> String -> msg) -> Attribute msg
+onNoteInput : (String -> Int -> String -> msg) -> Attribute msg
 onNoteInput tagger =
     on "input" (noteInputDecoder tagger)
 
-noteInputDecoder : (Int -> String -> msg) -> Decoder msg
+noteInputDecoder : (String -> Int -> String -> msg) -> Decoder msg
 noteInputDecoder tagger =
-    Decode.map2 tagger
+    Decode.map3 tagger
+        (Decode.at ["target", c_TRACK_ID_PROP_NAME]   Decode.string)
         (Decode.at ["target", c_STEP_INDEX_PROP_NAME] Decode.int)
         (Decode.at ["target", "value"]                Decode.string)

@@ -16,23 +16,40 @@
 			filter.frequency.value = 3000;
 			filter.connect(context.destination);
 
-			var oscillator = null;
+			var oscillators = {};
 
 			app.ports.toJs_stopPlayback.subscribe(function () {
-				oscillator && oscillator.stop(0);
-				oscillator = null;
+				for (var key in oscillators)
+				{
+					if (!oscillators.hasOwnProperty(key)) continue;
+
+					oscillators[key].stop(0);
+				}
+				oscillators = {};
 			});
 
-			app.ports.toJs_playFrequency.subscribe(function (frequency) {
-				oscillator && oscillator.stop(0);
-				oscillator = context.createOscillator();
-				oscillator.type = "triangle";
-				oscillator.frequency.value = frequency;
-				oscillator.connect(filter);
-				oscillator.start(0);
+			app.ports.toJs_stopOscillator.subscribe(function (trackId) {
+				if (oscillators[trackId]) {
+					oscillators[trackId].stop(0);
+					delete oscillators[trackId];
+				}
+			});
+
+			app.ports.toJs_startOscillator.subscribe(function (args) {
+				var trackId = args[0];
+				var frequency = args[1];
+
+				if (oscillators[trackId]) {
+					oscillators[trackId].stop(0);
+				}
+
+				oscillators[trackId] = context.createOscillator();
+				oscillators[trackId].type = "triangle";
+				oscillators[trackId].frequency.value = frequency;
+				oscillators[trackId].connect(filter);
+				oscillators[trackId].start(0);
 			});
 			
-
 		</script>
 	</body>
 </html>
