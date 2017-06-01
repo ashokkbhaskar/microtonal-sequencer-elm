@@ -1,1 +1,1 @@
-elm-make src/Main.elm --output=target/main.js
+elm-make src/Main.elm --output=dist/elm.js
