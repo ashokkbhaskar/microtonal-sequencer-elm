@@ -8,6 +8,8 @@ import Time exposing (Time, minute)
 import Html.Events exposing (onClick, onInput, on)
 import Json.Encode as Encode
 import Json.Decode as Decode exposing (Decoder)
+import Svg exposing (Svg, svg, circle)
+import Svg.Attributes as SvgAttr exposing (viewBox, cx, cy, r, fill, visibility)
 
 
 main = 
@@ -104,6 +106,9 @@ c_MIN_OUTPUT_FREQUENCY : Float
 c_MIN_OUTPUT_FREQUENCY = 20.0
 c_MAX_OUTPUT_FREQUENCY : Float
 c_MAX_OUTPUT_FREQUENCY = 20000.0
+
+c_NOTE_INPUT_WIDTH_PX : Int
+c_NOTE_INPUT_WIDTH_PX = 45
 
 --UPDATE
 
@@ -272,6 +277,7 @@ view model =
         , bpmHtmlElement
         , sequenceLengthHtmlElement
         , scaleHtmlElement
+        , positionLampLine model.sequenceLength model.currentIndex c_MAX_SEQ_LENGTH
         , trackHtmlElement c_TRACK_0_ID c_MAX_SEQ_LENGTH
         , trackHtmlElement c_TRACK_1_ID c_MAX_SEQ_LENGTH
         , trackHtmlElement c_TRACK_2_ID c_MAX_SEQ_LENGTH
@@ -294,6 +300,8 @@ bpmHtmlElement =
         [ span [] [text "BPM: "] 
         , input --These attributes don't seem to prevent onInput from being called with
         --incorrect payload strings, but they seem to provide some visual feedback
+        --(possibly browser-dependent - Chrome might prevent unwanted calls,
+        --but Firefox doesn't seem to)
             [ type_ "number"
             , defaultValue <| toString initialBpm
             , Attr.min <| toString c_MIN_BPM
@@ -372,7 +380,8 @@ noteInputHtmlElement trackId index initialNote =
                 Off ->
                     "x"
         , style 
-            [ ("width", "40px")
+            [ ("width", toString c_NOTE_INPUT_WIDTH_PX ++ "px")
+            , ("box-sizing", "border-box")
             ]
         , property c_TRACK_ID_PROP_NAME <| Encode.string trackId
         , property c_STEP_INDEX_PROP_NAME <| Encode.int index
@@ -406,3 +415,34 @@ noteInputDecoder tagger =
         (Decode.at ["target", c_TRACK_ID_PROP_NAME]   Decode.string)
         (Decode.at ["target", c_STEP_INDEX_PROP_NAME] Decode.int)
         (Decode.at ["target", "value"]                Decode.string)
+
+positionLampLine : Int -> Int -> Int -> Html msg
+positionLampLine sequenceLength currentIndex maxSeqLength =
+    svg [ SvgAttr.width <|
+            toString (maxSeqLength * c_NOTE_INPUT_WIDTH_PX) ++ "px"
+        , SvgAttr.height "10px"
+        --, viewBox <| "0 0 "
+        --    ++ toString (c_MAX_SEQ_LENGTH * c_NOTE_INPUT_WIDTH_PX)
+        --    ++ " 10"
+        ]
+        --[ circle [ cx "50", cy "50", r "45", fill "#0B79CE" ] []
+        --, circle [ cx "50", cy "50", r "45", fill "#0B79CE" ] []
+        --]
+        (positionLampList sequenceLength currentIndex maxSeqLength)
+
+positionLampList : Int -> Int -> Int -> List (Svg msg)
+positionLampList sequenceLength currentIndex maxSeqLength =
+    List.map (positionLamp sequenceLength currentIndex) (List.range 0 <| maxSeqLength - 1)
+
+positionLamp : Int -> Int -> Int -> Svg msg
+positionLamp sequenceLength currentIndex index =
+    let xPositionInt = 
+        (c_NOTE_INPUT_WIDTH_PX * index) + round (toFloat c_NOTE_INPUT_WIDTH_PX / 2)
+    in
+        circle
+            [ cx <| toString xPositionInt
+            , cy "5"
+            , r "5"
+            , fill (if index == currentIndex then "#FF0000" else "#600000")
+            , visibility (if index < sequenceLength then "visible" else "hidden")
+            ] []
