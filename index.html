@@ -13,8 +13,18 @@
 			var context = new (window.AudioContext || window.webkitAudioContext)();
 			var filter = context.createBiquadFilter();
 			filter.type = 'lowpass';
-			filter.frequency.value = 1700;
+			filter.frequency.value = 8000;
 			filter.connect(context.destination);
+
+			//These compressor settings have not been optimized or checked
+			//for output audio clipping yet
+			var compressor = context.createDynamicsCompressor();
+			compressor.threshold.value = -50;
+			compressor.knee.value = 40;
+			compressor.ratio.value = 12;
+			compressor.attack.value = 0;
+			compressor.release.value = 0.25;
+			compressor.connect(filter);
 
 			var oscillators = {};
 
@@ -46,7 +56,7 @@
 				oscillators[trackId] = context.createOscillator();
 				oscillators[trackId].type = "square";
 				oscillators[trackId].frequency.value = frequency;
-				oscillators[trackId].connect(filter);
+				oscillators[trackId].connect(compressor);
 				oscillators[trackId].start(0);
 			});
 			
