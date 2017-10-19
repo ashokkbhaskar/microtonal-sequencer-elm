@@ -277,13 +277,15 @@ view model =
         , bpmHtmlElement
         , sequenceLengthHtmlElement
         , scaleHtmlElement
-        , positionLampLine model.sequenceLength model.currentIndex c_MAX_SEQ_LENGTH
-        , trackHtmlElement c_TRACK_0_ID c_MAX_SEQ_LENGTH
-        , trackHtmlElement c_TRACK_1_ID c_MAX_SEQ_LENGTH
-        , trackHtmlElement c_TRACK_2_ID c_MAX_SEQ_LENGTH
-        , trackHtmlElement c_TRACK_3_ID c_MAX_SEQ_LENGTH
-        , trackHtmlElement c_TRACK_4_ID c_MAX_SEQ_LENGTH
-        , trackHtmlElement c_TRACK_5_ID c_MAX_SEQ_LENGTH
+        , div []
+            [ positionLampLine model.sequenceLength model.currentIndex c_MAX_SEQ_LENGTH
+            , trackHtmlElement c_TRACK_0_ID c_MAX_SEQ_LENGTH
+            , trackHtmlElement c_TRACK_1_ID c_MAX_SEQ_LENGTH
+            , trackHtmlElement c_TRACK_2_ID c_MAX_SEQ_LENGTH
+            , trackHtmlElement c_TRACK_3_ID c_MAX_SEQ_LENGTH
+            , trackHtmlElement c_TRACK_4_ID c_MAX_SEQ_LENGTH
+            , trackHtmlElement c_TRACK_5_ID c_MAX_SEQ_LENGTH
+            ]
         , p []
             [ text <|
                 "Positive and negative integers represent scale steps above and"
