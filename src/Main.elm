@@ -90,7 +90,7 @@ initialSeqLength = 4
 c_MIN_SEQ_LENGTH : Int
 c_MIN_SEQ_LENGTH = 1
 c_MAX_SEQ_LENGTH : Int
-c_MAX_SEQ_LENGTH = 16
+c_MAX_SEQ_LENGTH = 32
 
 initialBpm : Int
 initialBpm = 100
@@ -277,7 +277,12 @@ view model =
         , bpmHtmlElement
         , sequenceLengthHtmlElement
         , scaleHtmlElement
-        , div []
+        , div 
+            [ style
+                [ ("overflow-x", "auto")
+                , ("white-space", "nowrap")
+                ]
+            ]
             [ positionLampLine model.sequenceLength model.currentIndex c_MAX_SEQ_LENGTH
             , trackHtmlElement c_TRACK_0_ID c_MAX_SEQ_LENGTH
             , trackHtmlElement c_TRACK_1_ID c_MAX_SEQ_LENGTH
