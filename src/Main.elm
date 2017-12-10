@@ -90,7 +90,7 @@ initialSeqLength = 4
 c_MIN_SEQ_LENGTH : Int
 c_MIN_SEQ_LENGTH = 1
 c_MAX_SEQ_LENGTH : Int
-c_MAX_SEQ_LENGTH = 32
+c_MAX_SEQ_LENGTH = 128
 
 initialBpm : Int
 initialBpm = 100
@@ -284,6 +284,7 @@ view model =
                 ]
             ]
             [ positionLampLine model.sequenceLength model.currentIndex c_MAX_SEQ_LENGTH
+            , positionNumberLineHtml
             , trackHtmlElement c_TRACK_0_ID c_MAX_SEQ_LENGTH
             , trackHtmlElement c_TRACK_1_ID c_MAX_SEQ_LENGTH
             , trackHtmlElement c_TRACK_2_ID c_MAX_SEQ_LENGTH
@@ -370,6 +371,21 @@ scaleHtmlElement =
             ] []
         , span [] [text "Equal divisons of the octave"]
         ]
+
+positionNumberLineHtml =
+    div [] <|
+        List.map positionNumberHtml (List.range 1 c_MAX_SEQ_LENGTH)
+
+positionNumberHtml : Int -> Html msg
+positionNumberHtml stepNumber =
+    span
+        [ style 
+            [ ("display", "inline-block")
+            , ("text-align", "center")
+            , ("width", toString c_NOTE_INPUT_WIDTH_PX ++ "px")
+            ]
+        ]
+        [ text <| toString stepNumber ]
 
 trackHtmlElement : String -> Int -> Html Msg
 trackHtmlElement trackId maxSeqLength =
